@@ -86,51 +86,55 @@ def fetch_recent_logs(server_id: str, lines: int = 5) -> str:
     return json.dumps({"logs" : logs[:lines]});
 
 def restart_service(server_id: str) -> str:
-   """Return a JSON string confirming the restart was successful."""
+    """Return a JSON string confirming the restart was successful."""
 
-   print(f"-> Tool: Restarting service...")
-   response = json.loads(get_server_health(server_id))
-   server_metric = response["metrics"]
+    print("-> Tool: Restarting service...")
+    response = json.loads(get_server_health(server_id))
+    server_metric = response["metrics"]
 
-   if "error" in server_metric:
-    return json.dumps({"status": "error", "message": server_metric["error"]})
+    if "error" in server_metric:
+        return json.dumps({"status": "error", "message": server_metric["error"]})
 
-   percentage = float(server_metric["cpu"].strip("%"))
+    cpu_percentage = float(server_metric["cpu"].strip("%"))
 
-   if(percentage >= 90):
+    if cpu_percentage > 90:
+        return json.dumps({
+            "status": "success",
+            "message": f"Server {server_id} restarted successfully",
+        })
 
     return json.dumps({
-       "status": "success",
-       "message": f"Server {server_id} restarted successfully"
-    })
-
-   return json.dumps({
-      "status": "skipped",
-      "message": f"Restart not required for server {server_id}"
+        "status": "skipped",
+        "message": f"Restart not required for server {server_id}",
     })
 
 def escalate_to_engineer(server_id: str) -> str:
-   """Return a JSON string confirming the ticket was created."""
+    """Return a JSON string confirming the ticket was created."""
 
-   print(f"-> Tool: Escalating to human...")
+    print("-> Tool: Escalating to human...")
 
-   response = json.loads(fetch_recent_logs(server_id))
-   server_logs = response["logs"]
+    response = json.loads(fetch_recent_logs(server_id))
+    server_logs = response["logs"]
 
-   if "error" in server_logs:
-      return json.dumps({ "status": "error", "message" : server_logs["error"] })
+    if "error" in server_logs:
+        return json.dumps({"status": "error", "message": server_logs["error"]})
 
-   problem_logs = []
-   for log in server_logs:
-      if "ERROR" in log or "CRITICAL" in log:
-         problem_logs.append(log)
+    problem_logs = []
+    for log in server_logs:
+        if "ERROR" in log or "CRITICAL" in log:
+            problem_logs.append(log)
 
-   if problem_logs:
-      return json.dumps({
-            "status" : "escalate",
+    if problem_logs:
+        return json.dumps({
+            "status": "escalate",
             "message": "Major issue has been detected escalating to human",
-            "logs": server_logs
+            "logs": server_logs,
         })
+
+    return json.dumps({
+        "status": "healthy",
+        "message": "No critical errors found in the recent logs.",
+    })
 
 # Registry pattern
 AVAILABLE_FUNCTIONS = {
@@ -197,7 +201,7 @@ tools_schema = [
                 "properties": {
                     "server_id": {"type": "string", "description": "The ID of the server."},
                 },
-                "required": ["summary"]
+                "required": ["server_id"]
             }
         }
     }
@@ -250,5 +254,14 @@ def run_it_agent(user_issue: str):
 
 
 if __name__ == "__main__":
-    incident = input("Describe the server issue: ")
-    run_it_agent(incident)
+    scenarios = [
+        "The payment-server-01 is extremely slow and timing out.",
+        "Something is wrong with db-node-02.",
+        "Users are reporting login failures on auth-service-03.",
+        "Search isn't working. Can you check search-index-09?",
+        "Check frontend-node-04 just to be safe.",
+    ]
+
+    for scenario in scenarios:
+        run_it_agent(scenario)
+        print("\n" + "=" * 50 + "\n")
