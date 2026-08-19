@@ -247,3 +247,8 @@ def run_it_agent(user_issue: str):
     else:
        print(f"\n[FINAL RESPONSE]: {response_msg.content}")
        break
+
+
+if __name__ == "__main__":
+    incident = input("Describe the server issue: ")
+    run_it_agent(incident)
